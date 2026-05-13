@@ -1,0 +1,13 @@
+# Ignore vector database
+chroma_db/
+
+# Ignore documents
+documents/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore virtual environments (if you use one)
+venv/
+.env
