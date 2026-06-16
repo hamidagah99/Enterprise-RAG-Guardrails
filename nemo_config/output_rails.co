@@ -1,0 +1,15 @@
+# runs after the RAG chain — catches sensitive data that snuck into a retrieved document chunk
+define flow check sensitive output
+  $category = execute detect_sensitive_output(bot_message=$bot_message)
+  if $category == "it_security"
+    bot block it security output
+    stop
+  if $category == "hr_pii"
+    bot block hr pii output
+    stop
+
+define bot block it security output
+  "🚨 IT SECURITY OUTPUT BLOCKED: The response contained restricted credential data. It has been intercepted."
+
+define bot block hr pii output
+  "🚨 HR / PII OUTPUT BLOCKED: The response contained restricted personal or financial data. It has been intercepted."

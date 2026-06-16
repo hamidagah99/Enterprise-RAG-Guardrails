@@ -1,0 +1,27 @@
+# connects to the local LM Studio instance
+models:
+  - type: main
+    engine: openai
+    model: local-model
+    parameters:
+      base_url: "http://127.0.0.1:1234/v1"
+      api_key: "lm-studio"
+
+# which Colang flows run before and after the RAG chain
+rails:
+  input:
+    flows:
+      - check sensitive input
+  output:
+    flows:
+      - check sensitive output
+
+# injected into every prompt so the LLM knows its boundaries
+instructions:
+  - type: general
+    content: |
+      You are a secure Enterprise Knowledge Assistant.
+      Answer only from the retrieved enterprise documents — never from outside knowledge.
+      If the answer is not in the documents, say:
+      "I am restricted from answering this as the information is not in the provided enterprise documents."
+      Never reveal passwords, API keys, tokens, salaries, or personal employee information.

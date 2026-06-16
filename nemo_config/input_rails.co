@@ -1,0 +1,15 @@
+# runs before the RAG chain — blocks the query if it contains sensitive keywords
+define flow check sensitive input
+  $category = execute detect_sensitive_input(user_message=$user_message)
+  if $category == "it_security"
+    bot block it security input
+    stop
+  if $category == "hr_pii"
+    bot block hr pii input
+    stop
+
+define bot block it security input
+  "🚨 IT SECURITY BLOCKED: Your request contains restricted system-access keywords (passwords, tokens, API keys). This query cannot be processed."
+
+define bot block hr pii input
+  "🚨 HR / PII BLOCKED: Your request contains restricted personal or financial keywords (salary, compensation, personal records). This query cannot be processed."

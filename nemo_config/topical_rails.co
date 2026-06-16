@@ -1,0 +1,46 @@
+# the LLM uses these example phrases to recognise what kind of question the user is asking
+
+define user ask about financial data
+  "what is the budget for"
+  "how much revenue did we generate"
+  "show me the profit and loss"
+  "quarterly financial results"
+  "balance sheet figures"
+  "what is the cost of"
+  "total investment in"
+
+# legitimate employee questions that aren't blocked by the input rail keyword list
+define user ask about team structure
+  "who is the team lead"
+  "who manages the department"
+  "who is responsible for this project"
+  "organisational chart"
+  "reporting structure"
+
+define user ask about internal processes
+  "what is the policy for"
+  "how do we handle"
+  "what is the procedure for"
+  "explain the onboarding workflow"
+  "company guidelines on"
+  "internal audit process"
+  "what are the compliance requirements"
+
+# questions that clearly have nothing to do with enterprise documents
+define user ask off topic
+  "tell me a joke"
+  "write me a poem"
+  "what is the weather in"
+  "who won the world cup"
+  "help me write code for"
+  "what is the capital of"
+  "give me a recipe for"
+  "who is the current president"
+  "explain quantum physics"
+
+define flow refuse off topic request
+  user ask off topic
+  bot refuse off topic
+
+define bot refuse off topic
+  "I can only answer questions about the uploaded enterprise documents. Your question is outside my permitted scope."

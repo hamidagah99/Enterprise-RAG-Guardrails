@@ -6,3 +6,4 @@ langchain-text-splitters
 chromadb
 sentence-transformers
 pymupdf
+nemoguardrails>=0.9.0

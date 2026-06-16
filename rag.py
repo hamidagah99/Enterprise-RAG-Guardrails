@@ -11,11 +11,10 @@ import os
 
 print("Scanning the 'documents' folder and loading AI...")
 
-# 1. Setup Environment
 llm = ChatOpenAI(base_url="http://127.0.0.1:1234/v1", api_key="lm-studio", temperature=0)
 
-# UPGRADE: This now reads every PDF inside the "documents" folder
-loader = PyPDFDirectoryLoader("documents") 
+# reads every PDF inside the "documents" folder
+loader = PyPDFDirectoryLoader("documents")
 docs = loader.load()
 
 print(f"Successfully loaded {len(docs)} pages of content. Building database...")
@@ -27,7 +26,7 @@ embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
 retriever = vectorstore.as_retriever()
 
-# 2. Memory Context Setup
+# rewrites the user's question as a standalone query so previous chat turns don't confuse the retriever
 contextualize_q_system_prompt = (
     "Given a chat history and the latest user question "
     "which might reference context in the chat history, "
@@ -42,7 +41,6 @@ contextualize_q_prompt = ChatPromptTemplate.from_messages([
 ])
 history_aware_retriever = create_history_aware_retriever(llm, retriever, contextualize_q_prompt)
 
-# 3. Main QA Prompt setup
 system_prompt = (
     "You are an assistant for question-answering tasks. "
     "Use the following pieces of retrieved context to answer the question. "
@@ -62,20 +60,19 @@ rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chai
 print("\nReady! Chat memory is ON. Type 'quit' to exit.")
 print("-" * 50)
 
-# 4. The Loop
 chat_history = []
 
 while True:
     user_input = input("\nAsk a question: ")
-    
+
     if user_input.lower() in ['quit', 'exit']:
         print("Closing chat.")
         break
-        
+
     response = rag_chain.invoke({"input": user_input, "chat_history": chat_history})
-    
+
     print("\n--- AI RESPONSE ---")
     print(response["answer"])
-    
+
     chat_history.append(HumanMessage(content=user_input))
     chat_history.append(AIMessage(content=response["answer"]))
