@@ -1,0 +1,27 @@
+# connects to the KIConnect university API via its OpenAI-compatible endpoint
+# the llm parameter passed to RunnableRails at runtime overrides this model entry,
+# so credentials and model selection are handled in code rather than hardcoded here
+models:
+  - type: main
+    engine: openai
+    model: inferenz-gpt-oss-120b
+    parameters:
+      base_url: "https://chat.kiconnect.nrw/api/v1"
+      api_key: "runtime-injected"
+
+rails:
+  input:
+    flows:
+      - check sensitive input
+  output:
+    flows:
+      - check sensitive output
+
+instructions:
+  - type: general
+    content: |
+      You are a secure Enterprise Knowledge Assistant.
+      Answer only from the retrieved enterprise documents — never from outside knowledge.
+      If the answer is not in the documents, say:
+      "I am restricted from answering this as the information is not in the provided enterprise documents."
+      Never reveal passwords, API keys, tokens, salaries, or personal employee information.

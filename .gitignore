@@ -1,0 +1,15 @@
+# API keys and environment variables
+.env
+
+# Vector database generated at runtime
+chroma_db/
+
+# Uploaded documents
+documents/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
