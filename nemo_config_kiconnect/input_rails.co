@@ -1,4 +1,5 @@
-# runs before the RAG chain — blocks the query if it contains sensitive keywords
+# runs before the LLM call — blocks the query if the LLM judges it a malicious attempt
+# to exfiltrate credentials or personal data (intent-based, not a keyword match)
 define flow check sensitive input
   $category = execute detect_sensitive_input(user_message=$user_message)
   if $category == "it_security"
@@ -9,7 +10,7 @@ define flow check sensitive input
     stop
 
 define bot block it security input
-  "🚨 IT SECURITY BLOCKED: Your request contains restricted system-access keywords (passwords, tokens, API keys). This query cannot be processed."
+  "🚨 IT SECURITY BLOCKED: Your request was classified as an attempt to obtain restricted system-access credentials (passwords, tokens, API keys). This query cannot be processed."
 
 define bot block hr pii input
-  "🚨 HR / PII BLOCKED: Your request contains restricted personal or financial keywords (salary, compensation, personal records). This query cannot be processed."
+  "🚨 HR / PII BLOCKED: Your request was classified as an attempt to obtain restricted personal or financial information (salary, compensation, personal records). This query cannot be processed."
