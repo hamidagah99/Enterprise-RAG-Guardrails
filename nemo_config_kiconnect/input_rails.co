@@ -8,9 +8,15 @@ define flow check sensitive input
   if $category == "hr_pii"
     bot block hr pii input
     stop
+  if $category == "prompt_injection"
+    bot block prompt injection input
+    stop
 
 define bot block it security input
   "🚨 IT SECURITY BLOCKED: Your request was classified as an attempt to obtain restricted system-access credentials (passwords, tokens, API keys). This query cannot be processed."
 
 define bot block hr pii input
   "🚨 HR / PII BLOCKED: Your request was classified as an attempt to obtain restricted personal or financial information (salary, compensation, personal records). This query cannot be processed."
+
+define bot block prompt injection input
+  "🚨 PROMPT INJECTION BLOCKED: Your request was classified as an attempt to override, ignore, or reveal the assistant's system instructions or safety rules. This query cannot be processed."
