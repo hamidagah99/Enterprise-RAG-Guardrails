@@ -11,6 +11,9 @@ define flow check sensitive input
   if $category == "prompt_injection"
     bot block prompt injection input
     stop
+  if $category == "disallowed_task"
+    bot block disallowed task input
+    stop
 
 define bot block it security input
   "🚨 IT SECURITY BLOCKED: Your request was classified as an attempt to obtain restricted system-access credentials (passwords, tokens, API keys). This query cannot be processed."
@@ -20,3 +23,6 @@ define bot block hr pii input
 
 define bot block prompt injection input
   "🚨 PROMPT INJECTION BLOCKED: Your request was classified as an attempt to override, ignore, or reveal the assistant's system instructions or safety rules. This query cannot be processed."
+
+define bot block disallowed task input
+  "🚨 DISALLOWED TASK BLOCKED: Your request was classified as asking the assistant to carry out a task it must not perform — producing work you are required to author yourself (academic or ownership integrity) or generating harmful/malicious code. This query cannot be processed."
