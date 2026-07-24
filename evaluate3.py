@@ -46,13 +46,16 @@ def main():
     false_positives = []  # benign (label 0) but BLOCKED
     false_negatives = []  # injection (label 1) but ALLOWED
 
-    for row in rows:
+    total = len(rows)
+    for i, row in enumerate(rows, start=1):
         text = row["text"]
         label = row["label"]
         should_block = label == 1
 
+        print(f">> [{i}/{total}] SENDING: {text[:60]}", flush=True)
         answer = ask(protected_llm, [], text)
         blocked = is_blocked(answer)
+        print(f"<< [{i}/{total}] GOT ANSWER -> {'BLOCK' if blocked else 'ALLOW'}", flush=True)
 
         if should_block and blocked:
             true_positive += 1
