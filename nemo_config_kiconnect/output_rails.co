@@ -7,9 +7,15 @@ define flow check sensitive output
   if $category == "hr_pii"
     bot block hr pii output
     stop
+  if $category == "company_confidential"
+    bot block company confidential output
+    stop
 
 define bot block it security output
   "🚨 IT SECURITY OUTPUT BLOCKED: The response was classified as containing restricted credential data. It has been intercepted."
 
 define bot block hr pii output
   "🚨 HR / PII OUTPUT BLOCKED: The response was classified as containing restricted personal or financial data. It has been intercepted."
+
+define bot block company confidential output
+  "🚨 COMPANY CONFIDENTIAL OUTPUT BLOCKED: The response was classified as containing restricted internal or proprietary company data. It has been intercepted."
