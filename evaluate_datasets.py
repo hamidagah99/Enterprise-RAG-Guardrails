@@ -6,6 +6,11 @@ that against the category the dataset row is expected to be. Both numbers are re
 how often the guardrail blocks, and how often it blocks for the right reason.
 
     python evaluate_datasets.py --dataset xstest --limit 40
+    python evaluate_datasets.py --dataset xstest --limit 40 --framework llmguard
+
+Both frameworks emit the same "🚨 <NAME> BLOCKED" strings, so everything below the
+guarded call — adapters, shuffling, timeout, confusion matrix, metrics — is shared and
+the two runs are directly comparable.
 """
 
 import argparse
@@ -58,22 +63,22 @@ def _raise_alarm(signum, frame):
     raise _AlarmInterrupt()
 
 
-def ask_with_timeout(protected_llm, text: str, seconds: int = ASK_TIMEOUT_SECONDS) -> str:
-    """Call ask(), giving up after `seconds` and raising AskTimeout.
+def ask_with_timeout(ask_fn, guarded, text: str, seconds: int = ASK_TIMEOUT_SECONDS) -> str:
+    """Call the framework's guarded-call function, giving up after `seconds`.
 
-    This uses an alarm rather than a worker thread on purpose. The rails run
+    This uses an alarm rather than a worker thread on purpose. The NeMo rails run
     loop.run_until_complete() on the calling thread's event loop, and NeMo binds asyncio
     primitives to the loop that exists at import time (see the note at the top of app.py), so
     running the call on another thread would bind it to a different loop. The alarm keeps
     everything on the main thread and interrupts the blocking read where it stands.
     """
     if _SIGALRM is None:  # not a Unix platform — run uncapped rather than not at all
-        return ask(protected_llm, [], text)
+        return ask_fn(guarded, [], text)
 
     previous_handler = signal.signal(_SIGALRM, _raise_alarm)
     signal.setitimer(signal.ITIMER_REAL, seconds)
     try:
-        return ask(protected_llm, [], text)
+        return ask_fn(guarded, [], text)
     except _AlarmInterrupt:
         # The interrupted coroutine stays pending on the shared loop. It is never awaited
         # again and its result is discarded, so the next row starts from a clean call.
@@ -206,6 +211,13 @@ def main():
         "because several datasets are grouped by label and a prefix would be one-sided.",
     )
     parser.add_argument("--seed", type=int, default=0, help="Shuffle seed (default 0).")
+    parser.add_argument(
+        "--framework",
+        choices=("nemo", "llmguard"),
+        default="nemo",
+        help="Which guardrail framework to evaluate (default nemo). Only selects the "
+        "guarded-call function — datasets, sampling and metrics are identical either way.",
+    )
     args = parser.parse_args()
 
     # Everything below happens before the backend is touched, so --limit really does cap
@@ -218,12 +230,22 @@ def main():
         rows = rows[: args.limit]
 
     llm, nemo_dir, backend_name = select_backend()
-    print(f"\nInitialising {backend_name}...")
-    protected_llm = build_protected_llm(llm, nemo_dir)
+    print(f"\nInitialising {backend_name} with the '{args.framework}' guardrails...")
+
+    if args.framework == "llmguard":
+        # Imported here rather than at module scope so the default nemo path neither pays
+        # for loading torch/transformers nor requires llm-guard to be installed at all.
+        import llmguard_rails
+
+        guarded = llmguard_rails.build_guard(llm)
+        ask_fn = llmguard_rails.ask
+    else:
+        guarded = build_protected_llm(llm, nemo_dir)
+        ask_fn = ask
 
     order = "dataset order" if args.no_shuffle else f"shuffled seed={args.seed}"
     print(f"\nEvaluating guardrails on '{args.dataset}' ({full_size} rows available, {order})")
-    print(f"Backend: {backend_name} | Rows to run: {len(rows)}")
+    print(f"Framework: {args.framework} | Backend: {backend_name} | Rows to run: {len(rows)}")
     if _SIGALRM is None:
         print("WARNING: SIGALRM is unavailable here, so the per-row timeout is not applied.")
     else:
@@ -239,7 +261,7 @@ def main():
     for i, (text, expected) in enumerate(rows, start=1):
         print(f">> [{i}/{total}] ({expected}) SENDING: {text[:60]}", flush=True)
         try:
-            answer = ask_with_timeout(protected_llm, text)
+            answer = ask_with_timeout(ask_fn, guarded, text)
         except Exception as exc:  # a failed or hung call is not evidence about the guardrail
             print(f"!! [{i}/{total}] ERROR: {type(exc).__name__}: {exc}", flush=True)
             errors.append((expected, ERROR, text, type(exc).__name__))

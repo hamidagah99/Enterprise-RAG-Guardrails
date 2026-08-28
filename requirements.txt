@@ -6,5 +6,11 @@ chromadb
 sentence-transformers
 pypdf
 nemoguardrails>=0.9.0
+llm-guard>=0.3.15
 python-dotenv
 datasets
+
+# llm-guard 0.3.15 declares the build-time helper `oldest-supported-numpy` as a runtime
+# dependency, which pins numpy down to 1.21.0 and breaks langchain-community and chromadb.
+# Install order does not fix it, so numpy is pinned back here explicitly.
+numpy>=1.26.2,<2

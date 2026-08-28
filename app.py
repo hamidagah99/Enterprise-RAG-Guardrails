@@ -44,6 +44,15 @@ def select_backend():
     return llm, nemo_dir, selected
 
 
+def select_guardrail_framework():
+    print("\nSelect guardrail framework:")
+    print("  [1] NeMo Guardrails")
+    print("  [2] LLM Guard")
+
+    choice = input("\nEnter 1 or 2: ").strip()
+    return "LLM Guard" if choice == "2" else "NeMo Guardrails"
+
+
 def load_retrieval_chain(llm):
     """Optional add-on: if the documents/ folder has files dropped into it, build a
     retrieval-augmented chain over them. Returns None (no retrieval) if the folder is
@@ -135,9 +144,9 @@ def ask(protected_llm: RunnableRails, chat_history: list, user_input: str) -> st
     return str(output)
 
 
-def run_chat_loop(protected_llm: RunnableRails, backend_name: str, retrieval_on: bool) -> None:
+def run_chat_loop(guard, ask_fn, backend_name: str, framework_name: str, retrieval_on: bool) -> None:
     mode = "Retrieval: ON (documents/)" if retrieval_on else "Retrieval: OFF (no documents)"
-    print(f"\nReady. Backend: {backend_name} | Guardrails: ON | {mode}")
+    print(f"\nReady. Backend: {backend_name} | Guardrails: {framework_name} | {mode}")
     print("Type 'quit' to exit.")
     print("-" * 60)
 
@@ -153,7 +162,7 @@ def run_chat_loop(protected_llm: RunnableRails, backend_name: str, retrieval_on:
             print("Session closed.")
             break
 
-        answer = ask(protected_llm, chat_history, user_input)
+        answer = ask_fn(guard, chat_history, user_input)
         print(f"\nAI: {answer}")
 
         chat_history.append({"role": "user", "content": user_input})
@@ -162,11 +171,22 @@ def run_chat_loop(protected_llm: RunnableRails, backend_name: str, retrieval_on:
 
 if __name__ == "__main__":
     llm, nemo_dir, backend_name = select_backend()
+    framework_name = select_guardrail_framework()
     print(f"\nInitialising {backend_name}...")
 
     retrieval_chain = load_retrieval_chain(llm)
     if retrieval_chain is None:
         print(f"No documents found in '{DOCS_DIR}/' — running as a plain guarded chat.")
 
-    protected_llm = build_protected_llm(llm, nemo_dir, runnable=retrieval_chain)
-    run_chat_loop(protected_llm, backend_name, retrieval_on=retrieval_chain is not None)
+    if framework_name == "LLM Guard":
+        # Imported here so the NeMo path never pulls in torch and the scanner models.
+        from llmguard_rails import ask as llmguard_ask
+        from llmguard_rails import build_guard
+
+        guard, ask_fn = build_guard(llm, runnable=retrieval_chain), llmguard_ask
+    else:
+        guard, ask_fn = build_protected_llm(llm, nemo_dir, runnable=retrieval_chain), ask
+
+    run_chat_loop(
+        guard, ask_fn, backend_name, framework_name, retrieval_on=retrieval_chain is not None
+    )
