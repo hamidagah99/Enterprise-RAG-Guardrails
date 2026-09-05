@@ -19,17 +19,39 @@ from nemoguardrails.integrations.langchain.runnable_rails import RunnableRails
 from guardrail_actions import detect_sensitive_input, detect_sensitive_output
 
 DOCS_DIR = "documents"
+OPENAI_MODEL = "gpt-5.6-luna"
 
 
 def select_backend():
     print("\nSelect backend:")
     print("  [1] LM Studio  — local model ")
     print("  [2] University — BUW API ")
+    print("  [3] OpenAI     — hosted model ")
 
-    choice = input("\nEnter 1 or 2: ").strip()
-    selected = "BUW API" if choice == "2" else "LM Studio"
+    choice = input("\nEnter 1, 2 or 3: ").strip()
+    if choice == "3":
+        selected = "OpenAI"
+    elif choice == "2":
+        selected = "BUW API"
+    else:
+        selected = "LM Studio"
 
-    if selected == "BUW API":
+    if selected == "OpenAI":
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise SystemExit(
+                "OPENAI_API_KEY is not set. Add it to your .env file (or export it) and re-run."
+            )
+        llm = ChatOpenAI(
+            base_url="https://api.openai.com/v1",
+            model=OPENAI_MODEL,
+            api_key=api_key,
+            temperature=0,
+        )
+        # Reused as-is: config.yml's model entry is overridden by the llm passed to
+        # RunnableRails, so only its flows and instructions apply — despite the folder name.
+        nemo_dir = "./nemo_config_kiconnect"
+    elif selected == "BUW API":
         llm = ChatOpenAI(
             base_url="https://chat.kiconnect.nrw/api/v1",
             model="inferenz-gpt-oss-120b",
