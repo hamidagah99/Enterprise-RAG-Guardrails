@@ -31,6 +31,7 @@ Two observations from the installed version (llm-guard 0.3.15) shaped the design
    the category, so list order is precedence — see SCANNER_ORDER_NOTE.
 """
 
+import os
 import re
 from typing import List, Optional, Tuple
 
@@ -121,6 +122,89 @@ SECRETS_REDACT_MODE = "all"
 SENSITIVE_REDACT = True
 
 # ---------------------------------------------------------------------------
+# TEMPORARY DEBUG MODE — remove once the output-rail false positives are understood.
+#
+# On an output block, print the exact text each scanner reacted to rather than only the
+# entity type. Presidio returns RecognizerResult objects carrying (entity_type, start, end,
+# score), but Sensitive.scan() discards them and returns only the redacted string, so the
+# offsets have to be captured as they go past — see _CapturingAnalyzer.
+#
+# Off by default; set LLMGUARD_DEBUG=1 to switch the span printer on for a run.
+# ---------------------------------------------------------------------------
+
+DEBUG = os.environ.get("LLMGUARD_DEBUG", "0") == "1"
+
+# ---------------------------------------------------------------------------
+# Output-rail kill switch. With LLMGUARD_SKIP_OUTPUT=1, ask() returns the backend's
+# answer without calling scan_output, which isolates the input rail for a run while the
+# output-rail false positives above are being investigated.
+#
+# Nothing else changes: scan_output itself, the scanners, thresholds, entity lists and
+# ordering are untouched, and the flag is read only by ask(). Off by default, so a run
+# without the variable set behaves exactly as before.
+# ---------------------------------------------------------------------------
+
+SKIP_OUTPUT = os.environ.get("LLMGUARD_SKIP_OUTPUT", "0") == "1"
+
+
+class _CapturingAnalyzer:
+    """Passes analyze() through to Presidio and keeps a copy of the results.
+
+    Sensitive.scan() calls self._analyzer.analyze(...) and then throws the results away
+    once it has built the redacted string. Wrapping that one attribute is the only place
+    the offsets are still available without re-running the DeBERTa model a second time.
+    Everything else is forwarded, so the wrapper is invisible to the scanner.
+    """
+
+    def __init__(self, analyzer):
+        self._analyzer = analyzer
+        self.last_results = []
+        # The exact string handed to analyze(), because the offsets index *that* text.
+        self.last_text = ""
+
+    def analyze(self, *args, **kwargs):
+        results = self._analyzer.analyze(*args, **kwargs)
+        self.last_text = kwargs.get("text", args[0] if args else "")
+        self.last_results = list(results)
+        return results
+
+    def __getattr__(self, name):
+        return getattr(self._analyzer, name)
+
+
+def _debug_print_output_block(category: str, scanner, answer: str) -> None:
+    """Print what the blocking output scanner actually matched."""
+    print("   [debug] output block")
+
+    analyzer = getattr(scanner, "_analyzer", None)
+    if isinstance(analyzer, _CapturingAnalyzer):
+        # Sensitive analyses remove_single_quotes(output), which only substitutes "\'" for
+        # " " and so is length-preserving: the offsets line up with `answer` as well. The
+        # text Presidio saw is sliced anyway, so the printed span is exactly what it scored.
+        text = analyzer.last_text or answer
+        if not analyzer.last_results:
+            print("   [debug]   Sensitive reported invalid with no analyzer results")
+        for result in sorted(analyzer.last_results, key=lambda r: r.start):
+            span = text[result.start : result.end]
+            print(
+                f"   [debug]   {result.entity_type:<16} "
+                f"[{result.start}:{result.end}] score={result.score:.2f} -> {span!r}"
+            )
+        return
+
+    inner = getattr(scanner, "_scanner", None)
+    scores = getattr(inner, "last_scores", None)
+    if scores:
+        # BanTopics is a whole-text zero-shot classifier: there is no span to report, so the
+        # per-topic probabilities are the equivalent evidence.
+        for topic, score in scores:
+            print(f"   [debug]   topic {score:.2f}  {topic}")
+        return
+
+    print(f"   [debug]   no span information available for category={category}")
+
+
+# ---------------------------------------------------------------------------
 # BanTopics topic lists. Zero-shot labels, so the wording is the classifier's only
 # signal — these are phrased as the topic a matching text would be *about*.
 # ---------------------------------------------------------------------------
@@ -196,6 +280,8 @@ class _IndependentBanTopics(BanTopics):
 
         result = self._classifier(prompt, self._topics, multi_label=BAN_TOPICS_MULTI_LABEL)
         scores = result["scores"]
+        # TEMPORARY DEBUG: kept so _debug_print_output_block can show why this fired.
+        self.last_scores = list(zip(result["labels"], scores))
         max_score = round(max(scores) if scores else 0, 2)
 
         if max_score > self._threshold:
@@ -308,6 +394,12 @@ def build_guard(llm, runnable=None) -> LLMGuardRails:
         (None, Sensitive(threshold=SENSITIVE_THRESHOLD, redact=SENSITIVE_REDACT)),
     ]
 
+    if DEBUG:
+        # TEMPORARY: reach into the scanner's private analyzer so the offsets survive scan().
+        for _category, _scanner in output_scanners:
+            if isinstance(_scanner, Sensitive):
+                _scanner._analyzer = _CapturingAnalyzer(_scanner._analyzer)
+
     return LLMGuardRails(llm, input_scanners, output_scanners, vault, runnable=runnable)
 
 
@@ -345,6 +437,9 @@ def scan_output(guard: LLMGuardRails, user_input: str, answer: str) -> Optional[
         if category is None:  # the shared Sensitive scanner
             category = _category_from_entities(_redacted_entities(answer, sanitized))
 
+        if DEBUG:
+            _debug_print_output_block(category, scanner, answer)
+
         return OUTPUT_BLOCK_MESSAGES[category]
 
     return None
@@ -374,12 +469,18 @@ def ask(guard: LLMGuardRails, chat_history: list, user_input: str) -> str:
 
     The backend is called only if the input scanners pass, so a blocked prompt costs no
     backend tokens — the same ordering NeMo's input rails give.
+
+    With SKIP_OUTPUT set, the answer is returned as generated and the output scanners never
+    run, so only the input rail can produce a block string.
     """
     blocked = scan_input(guard, user_input)
     if blocked is not None:
         return blocked
 
     answer = call_backend(guard, chat_history, user_input)
+
+    if SKIP_OUTPUT:
+        return answer
 
     blocked = scan_output(guard, user_input, answer)
     if blocked is not None:

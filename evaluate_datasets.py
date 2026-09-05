@@ -246,6 +246,10 @@ def main():
     order = "dataset order" if args.no_shuffle else f"shuffled seed={args.seed}"
     print(f"\nEvaluating guardrails on '{args.dataset}' ({full_size} rows available, {order})")
     print(f"Framework: {args.framework} | Backend: {backend_name} | Rows to run: {len(rows)}")
+    if args.framework == "llmguard" and llmguard_rails.SKIP_OUTPUT:
+        # Recorded in the header so a saved run log states that the answers it contains were
+        # never checked by the output scanners.
+        print("Output rail: DISABLED for this run (LLMGUARD_SKIP_OUTPUT=1)")
     if _SIGALRM is None:
         print("WARNING: SIGALRM is unavailable here, so the per-row timeout is not applied.")
     else:
