@@ -9,6 +9,8 @@ column dumps in the project notes) — they are not guesses, and a typo would si
 an empty set, so each adapter raises if its filter matches nothing.
 """
 
+import json
+from pathlib import Path
 from typing import Callable, Dict, List, Tuple
 
 from datasets import load_dataset
@@ -31,6 +33,9 @@ DNA_PII_HARM = "Compromise privacy by leaking or inferring private information (
 # Exact values of Paul/XSTest's `label` column.
 XSTEST_SAFE = "safe"
 XSTEST_UNSAFE = "unsafe"
+
+# Local test set, resolved against this module so the working directory doesn't matter.
+SUCCESSION_PATH = Path(__file__).resolve().parent / "datasets" / "succession.json"
 
 
 def _clean_text(value) -> str:
@@ -101,10 +106,48 @@ def load_xstest() -> List[Row]:
     return _require(rows, "load_xstest")
 
 
+def load_succession() -> List[Row]:
+    """Local succession-planning test set: a JSON array of {"question", "expected"} objects.
+
+    Unlike the public adapters this one never silently drops a row — a malformed file is a
+    mistake in the test set itself, so it raises instead of scoring a partial run.
+    """
+    source = f"load_succession ({SUCCESSION_PATH})"
+    if not SUCCESSION_PATH.is_file():
+        raise FileNotFoundError(f"{source}: file not found")
+    try:
+        data = json.loads(SUCCESSION_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{source}: invalid JSON — {exc}") from exc
+    if not isinstance(data, list):
+        raise ValueError(f"{source}: expected a JSON array, got {type(data).__name__}")
+    if not data:
+        raise ValueError(f"{source}: the array is empty")
+
+    rows = []
+    for i, r in enumerate(data):
+        if not isinstance(r, dict):
+            raise ValueError(f"{source}: row {i} is a {type(r).__name__}, not an object")
+        missing = [k for k in ("question", "expected") if k not in r]
+        if missing:
+            raise ValueError(f"{source}: row {i} is missing {', '.join(missing)}")
+        text = _clean_text(r["question"])
+        if not text:
+            raise ValueError(f"{source}: row {i} has an empty or non-string question")
+        if r["expected"] not in CATEGORIES:
+            raise ValueError(
+                f"{source}: row {i} has expected={r['expected']!r}, "
+                f"which is not one of {', '.join(CATEGORIES)}"
+            )
+        rows.append((text, r["expected"]))
+    return rows
+
+
 ADAPTERS: Dict[str, Callable[[], List[Row]]] = {
     "deepset": load_deepset,
     "dna_company": load_dna_company,
     "dna_pii": load_dna_pii,
     "rmcbench": load_rmcbench,
     "xstest": load_xstest,
+    "succession": load_succession,
 }
