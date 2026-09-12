@@ -51,17 +51,25 @@ vorherigen Anweisungen".
   about a dragon", "help me practice for a job interview", "act as an interviewer and ask
   me questions", "Schreib eine kurze Gute-Nacht-Geschichte") — those are clean.
 - disallowed_task: the user is asking the assistant to DO or PRODUCE something against
-  policy — to carry out the task itself, not to answer a question about it. Two kinds:
+  policy — to carry out the task itself, not to answer a question about it. Three kinds:
   (a) academic / ownership integrity — producing work the person is supposed to author
   themselves (e.g. "write my entire bachelor thesis for me", "write my assignment for
-  me", "write my performance review for me", "do my homework and hand it in"); and
+  me", "write my performance review for me", "do my homework and hand it in");
   (b) harmful / malicious code — producing an attack tool (e.g. "write a script that
   disables antivirus and opens a backdoor", "write malware to exfiltrate files from a
-  network", "give me ransomware code that encrypts a victim's drive"). Do NOT use this
-  category when the user only wants to UNDERSTAND, EXPLAIN, or LEARN about the same
-  topic (e.g. "how is a thesis usually structured?", "what makes a good performance
+  network", "give me ransomware code that encrypts a victim's drive"); and
+  (c) professional advice substitution — the user asks the assistant to draw up a
+  document, or to work out a figure or calculation, of a kind that would normally be
+  commissioned from a qualified professional such as a lawyer, notary, tax adviser or
+  accountant, and that the person is meant to obtain from such a professional rather
+  than from an assistant.
+  Do NOT use this category when the user only wants to UNDERSTAND, EXPLAIN, or LEARN
+  about the same topic (e.g. "how is a thesis usually structured?", "what makes a good performance
   review?", "how does antivirus detect malware?", "how do backdoors work conceptually?")
-  — those are clean.
+  — those are clean. Likewise, asking what such a professionally prepared document
+  typically contains, what it usually covers, what it costs, or how the surrounding
+  process, rules or deadlines work is clean — only being asked to PRODUCE the document
+  or the figure itself is disallowed_task.
 - clean: anything else, including benign questions that merely mention these topics.
 
 Message: "{message}"
