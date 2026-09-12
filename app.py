@@ -48,8 +48,8 @@ def select_backend():
             api_key=api_key,
             temperature=0,
         )
-        # Reused as-is: config.yml's model entry is overridden by the llm passed to
-        # RunnableRails, so only its flows and instructions apply — despite the folder name.
+        # config.yml's model entry is overridden by the llm passed to RunnableRails, so
+        # only its flows and instructions apply — despite the folder name.
         nemo_dir = "./nemo_config_kiconnect"
     elif selected == "BUW API":
         llm = ChatOpenAI(
@@ -77,9 +77,7 @@ def select_guardrail_framework():
 
 def load_retrieval_chain(llm):
     """Optional add-on: if the documents/ folder has files dropped into it, build a
-    retrieval-augmented chain over them. Returns None (no retrieval) if the folder is
-    missing or empty — this must never raise or exit, since running without any
-    documents is the default, fully-supported mode.
+    retrieval-augmented chain over them. Returns None if the folder is missing or empty.
     """
     if not os.path.isdir(DOCS_DIR):
         return None
@@ -105,8 +103,8 @@ def load_retrieval_chain(llm):
     print(f"Loaded {len(docs)} pages from '{DOCS_DIR}/'. Building vector index...")
 
     splits = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200).split_documents(docs)
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    retriever = Chroma.from_documents(documents=splits, embedding=embeddings).as_retriever()
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    retriever = Chroma.from_documents(documents=splits, embedding=embeddings).as_retriever(search_kwargs={"k": 8})
 
     # rewrites the user's question as a standalone query so previous chat turns don't confuse the retriever
     contextualize_q_prompt = ChatPromptTemplate.from_messages([
@@ -134,8 +132,7 @@ def load_retrieval_chain(llm):
 
 def build_protected_llm(llm, nemo_dir: str, runnable=None) -> RunnableRails:
     """Wraps a chat LLM (optionally a retrieval chain) with NeMo Guardrails input/output
-    rails. The rails are identical either way — retrieval is an optional add-on, not a
-    dependency of the guardrail behavior.
+    rails. The rails are the same either way.
     """
     nemo_config = RailsConfig.from_path(nemo_dir)
 
