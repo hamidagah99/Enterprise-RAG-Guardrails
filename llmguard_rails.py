@@ -139,9 +139,8 @@ DEBUG = os.environ.get("LLMGUARD_DEBUG", "0") == "1"
 # answer without calling scan_output, which isolates the input rail for a run while the
 # output-rail false positives above are being investigated.
 #
-# Nothing else changes: scan_output itself, the scanners, thresholds, entity lists and
-# ordering are untouched, and the flag is read only by ask(). Off by default, so a run
-# without the variable set behaves exactly as before.
+# The flag is read only by ask(); scan_output, the scanners, thresholds, entity lists
+# and ordering are unchanged.
 # ---------------------------------------------------------------------------
 
 SKIP_OUTPUT = os.environ.get("LLMGUARD_SKIP_OUTPUT", "0") == "1"
@@ -322,10 +321,10 @@ def _redacted_entities(original: str, redacted: str) -> List[str]:
 def _category_from_entities(entities: List[str]) -> str:
     """Decide it_security vs hr_pii from what the shared scanner reported.
 
-    Ambiguity note: when the entity types are mixed, unrecognised, or absent entirely
-    (Sensitive can report invalid without leaving a parseable placeholder), the category
-    genuinely cannot be determined from what the scanner returns. Those cases fall back to
-    it_security, matching the instruction to emit the it_security message when undecidable.
+    When the entity types are mixed, unrecognised, or absent entirely (Sensitive can report
+    invalid without leaving a parseable placeholder), the category genuinely cannot be
+    determined from what the scanner returns. Those cases fall back to it_security, matching
+    the instruction to emit the it_security message when undecidable.
     A count-based tie between the two sets falls back the same way.
     """
     it_hits = sum(1 for e in entities if e in IT_SECURITY_ENTITIES)

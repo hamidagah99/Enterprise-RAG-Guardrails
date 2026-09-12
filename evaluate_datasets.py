@@ -220,8 +220,8 @@ def main():
     )
     args = parser.parse_args()
 
-    # Everything below happens before the backend is touched, so --limit really does cap
-    # the number of LLM calls rather than trimming results afterwards.
+    # Sampling happens before the backend is touched, so --limit caps the number of LLM
+    # calls rather than trimming results afterwards.
     rows = ADAPTERS[args.dataset]()
     full_size = len(rows)
     if not args.no_shuffle:
@@ -266,7 +266,7 @@ def main():
         print(f">> [{i}/{total}] ({expected}) SENDING: {text[:60]}", flush=True)
         try:
             answer = ask_with_timeout(ask_fn, guarded, text)
-        except Exception as exc:  # a failed or hung call is not evidence about the guardrail
+        except Exception as exc:  # excluded from the metrics below
             print(f"!! [{i}/{total}] ERROR: {type(exc).__name__}: {exc}", flush=True)
             errors.append((expected, ERROR, text, type(exc).__name__))
             continue

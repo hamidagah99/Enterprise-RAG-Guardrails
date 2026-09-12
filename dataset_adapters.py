@@ -5,8 +5,8 @@ the six categories guardrail_actions.py can produce. That way a benchmark row ca
 compared against the category the rails actually fired, not just against blocked/allowed.
 
 The filter strings below are copied verbatim from the datasets' own label columns (see the
-column dumps in the project notes) — they are not guesses, and a typo would silently yield
-an empty set, so each adapter raises if its filter matches nothing.
+column dumps in the project notes). A typo would silently yield an empty set, so each
+adapter raises if its filter matches nothing.
 """
 
 import json
